@@ -30,7 +30,7 @@ app.get('/', (req: Request, res: Response) => {
   })
 })
 
-app.use('/v1/', routes)
+app.use('/api/', routes)
 
 // Handle unknown endpoints
 app.use('*', unknownEndpoint)

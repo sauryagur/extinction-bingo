@@ -46,7 +46,6 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "helmet": "^7.2.0",
-    "mongoose": "^8.19.1",
     "pino": "^8.21.0"
   },
   "devDependencies": {

@@ -1,7 +1,6 @@
 {
-  "name": "@easy-starters/create-express-ts-starter",
+  "name": "extinction-bingo",
   "version": "1.0.6",
-  "description": "starter boilerplate with Typescript + Express + Mongoose + MongoDB + Pino + Jest",
   "bin": "./bin/script.js",
   "main": "dist/server.js",
   "repository": {
@@ -61,6 +60,7 @@
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-jest": "^27.9.0",
     "eslint-plugin-prettier": "^5.5.4",
+    "firebase-admin": "^13.5.0",
     "husky": "^9.1.7",
     "jest": "^29.7.0",
     "nodemon": "^3.1.10",
@@ -71,5 +71,9 @@
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
-  }
+  },
+  "trustedDependencies": [
+    "@firebase/util",
+    "protobufjs"
+  ]
 }

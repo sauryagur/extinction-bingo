@@ -1,23 +1,18 @@
-import mongoose from 'mongoose'
-import logger from '../common/logger'
+// src/services/firebase.service.ts
+import * as admin from 'firebase-admin'
+import { ServiceAccount } from 'firebase-admin'
 
-// to use env variables
-import '../common/env'
+// Load your service account key securely from an environment variable.
+// Make sure this env var is set in your deployment environment!
+const serviceAccount: ServiceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string)
 
-const DB_URI = process.env.MONGO_URI || process.env.LOCAL_CONNECTION_STRING
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  // If you were using the Realtime Database, you'd add:
+  // databaseURL: "https://extinction-bingo.firebaseio.com"
+})
 
-mongoose.connect(DB_URI)
+const db = admin.firestore() // Get the Firestore instance
+const auth = admin.auth() // Get the Authentication instance
 
-mongoose.Promise = global.Promise
-
-// Get current connected Database
-const db = mongoose.connection
-
-// Notify on error or success
-db.on('error', (err) => logger.error('connection with db error', err))
-db.on('close', () => logger.info('connection closed to db'))
-db.once('open', () => logger.info(`Connected to the database instance on ${DB_URI}`))
-
-export default {
-  Connection: db,
-}
+export { db, auth, admin } // Export these instances for use in other parts of your app

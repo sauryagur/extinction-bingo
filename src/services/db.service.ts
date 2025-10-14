@@ -1,23 +1,35 @@
-import mongoose from 'mongoose'
-import logger from '../common/logger'
+/**
+ * @file db.service.ts
+ * @description Firestore helper functions for interacting with the 'games' collection.
+ */
 
-// to use env variables
-import '../common/env'
+import { db } from './firebase.service'
+import { GameState } from '../models/GameState'
 
-const DB_URI = process.env.MONGO_URI || process.env.LOCAL_CONNECTION_STRING
+const gameCollection = db.collection('games')
 
-mongoose.connect(DB_URI)
-
-mongoose.Promise = global.Promise
-
-// Get current connected Database
-const db = mongoose.connection
-
-// Notify on error or success
-db.on('error', (err) => logger.error('connection with db error', err))
-db.on('close', () => logger.info('connection closed to db'))
-db.once('open', () => logger.info(`Connected to the database instance on ${DB_URI}`))
-
-export default {
-  Connection: db,
+export async function createGame(gameState: GameState): Promise<string> {
+  const docRef = await gameCollection.add({
+    ...gameState,
+    updatedAt: Date.now(),
+  })
+  return docRef.id
 }
+
+export async function getGameById(id: string): Promise<GameState | null> {
+  const doc = await gameCollection.doc(id).get()
+  return doc.exists ? (doc.data() as GameState) : null
+}
+
+export async function updateGame(id: string, data: Partial<GameState>): Promise<void> {
+  await gameCollection.doc(id).update({
+    ...data,
+    updatedAt: Date.now(),
+  })
+}
+
+export async function deleteGame(id: string): Promise<void> {
+  await gameCollection.doc(id).delete()
+}
+
+export default { createGame, getGameById, updateGame, deleteGame }

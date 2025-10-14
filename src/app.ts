@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import compression from 'compression'
 import routes from './common/routes'
 import unknownEndpoint from './middlewares/unknownEndpoint'
+import { requestLogger as loggerMiddleware } from './middlewares/loggerMiddleware'
 
 // to use env variables
 import './common/env'
@@ -22,6 +23,7 @@ app.use(
   }),
 )
 app.use(express.json())
+app.use(loggerMiddleware)
 
 // health check
 app.get('/', (req: Request, res: Response) => {

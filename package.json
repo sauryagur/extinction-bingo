@@ -40,6 +40,8 @@
   "author": "Wubshet Zeleke",
   "license": "ISC",
   "dependencies": {
+    "@langchain/core": "^0.3.78",
+    "@langchain/openai": "^0.6.16",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

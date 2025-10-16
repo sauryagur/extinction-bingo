@@ -1,7 +1,8 @@
 // src/core/bingo.ts
 
-import { BingoObjective, GameState } from '../models'
+import { BingoObjective, GameState, GameEvent } from '../models'
 import { ObjectiveStatus } from '../models/GameState'
+import { generateUniqueId } from '../common/utils'
 
 /**
  * Defines the complete pool of possible Extinction Bingo Objectives.
@@ -53,21 +54,117 @@ export function generateBingoCard(): BingoObjective[] {
 
 /**
  * Checks all active Bingo Objectives against the current game state.
+ * For demo purposes, it completes an objective every 5 turns.
+ * It also checks for and applies bonuses for completed lines (rows, columns, diagonals).
  * @param state The current GameState.
  */
 export function checkBingoCompletion(state: GameState): void {
-  // In a full implementation, this would iterate over state.bingoCard
-  // and apply complex logic based on the 'criteria' string and the game history (gameLog).
-  // For now, this is where the logic described in the GDD's 'Strategic Layer' lives.
+  // Placeholder Logic: Mark the first uncompleted objective as 'Complete' if the turn is a multiple of 5.
+  let objectiveCompletedThisTurn = false;
+  if (state.turn > 0 && state.turn % 5 === 0) {
+    const firstIncomplete = state.bingoCard.find((obj) => obj.status === 'Incomplete');
 
-  // Example logic placeholder:
-  state.bingoCard.forEach((objective) => {
-    if (objective.status === 'Incomplete') {
-      // Check specific objective criteria (e.g., if criteria == 'dominate_early_5')
-      // if (criteriaMet) {
-      //     objective.status = 'Complete';
-      //     // Apply bonus effect...
-      // }
+    if (firstIncomplete) {
+      firstIncomplete.status = 'Complete';
+      objectiveCompletedThisTurn = true;
+
+      // Log a GameEvent for the completion.
+      const event: GameEvent = {
+        id: generateUniqueId(),
+        turn: state.turn,
+        eventType: 'BingoObjectiveComplete',
+        narrative: `Objective Achieved: "${firstIncomplete.description}"`,
+        regionId: null,
+        timestamp: Date.now(),
+        details: { objectiveId: firstIncomplete.id },
+      };
+      state.gameLog.push(event);
+      console.log(`[BINGO] Turn ${state.turn}: Objective "${firstIncomplete.description}" completed!`);
     }
-  })
+  }
+
+  // If an objective was completed, check for new bingo lines.
+  if (objectiveCompletedThisTurn) {
+    checkAndApplyBingoLineBonuses(state);
+  }
+}
+
+/**
+ * Checks for completed rows, columns, and diagonals on the 3x3 bingo card.
+ * @param state The current GameState.
+ */
+function checkAndApplyBingoLineBonuses(state: GameState): void {
+  const card = state.bingoCard;
+  if (card.length !== 9) return; // Ensure it's a 3x3 grid
+
+  const lines = {
+    // Rows
+    'row-0': [0, 1, 2],
+    'row-1': [3, 4, 5],
+    'row-2': [6, 7, 8],
+    // Columns
+    'col-0': [0, 3, 6],
+    'col-1': [1, 4, 7],
+    'col-2': [2, 5, 8],
+    // Diagonals
+    'diag-down': [0, 4, 8],
+    'diag-up': [2, 4, 6],
+  };
+
+  for (const [lineId, indices] of Object.entries(lines)) {
+    // Check if this line is already completed and rewarded
+    if (state.completedBingoLines.includes(lineId)) {
+      continue;
+    }
+
+    const isLineComplete = indices.every((index) => card[index].status === 'Complete');
+
+    if (isLineComplete) {
+      // Mark line as complete to prevent re-awarding
+      state.completedBingoLines.push(lineId);
+
+      // Apply a powerful, one-time bonus
+      applyBingoBonus(state, lineId);
+    }
+  }
+}
+
+/**
+ * Applies a powerful bonus based on the completed line.
+ * @param state The current GameState.
+ * @param lineId The identifier of the completed line (e.g., 'row-0').
+ */
+function applyBingoBonus(state: GameState, lineId: string): void {
+  let bonusNarrative = '';
+
+  // Example Bonuses
+  if (lineId.startsWith('row')) {
+    state.power += 50; // Massive power injection
+    bonusNarrative = 'Line Bonus: Critical power surge detected (+50 Power).';
+  } else if (lineId.startsWith('col')) {
+    state.progressCapPerAction += 5; // Increase action effectiveness
+    bonusNarrative = `Line Bonus: Global destabilization matrix enhanced (+5 Progress Cap).`;
+  } else if (lineId.startsWith('diag')) {
+    // Instantly make one Stable region Contested
+    const stableRegion = state.regions.find((r) => r.state === 'Stable');
+    if (stableRegion) {
+      stableRegion.state = 'Contested';
+      stableRegion.progressToNextState = 0;
+      bonusNarrative = `Line Bonus: ${stableRegion.name} has descended into chaos, now Contested.`;
+    }
+  }
+
+  if (bonusNarrative) {
+    const event: GameEvent = {
+      id: generateUniqueId(),
+      turn: state.turn,
+      eventType: 'BingoLineBonus',
+      narrative: bonusNarrative,
+      regionId: null,
+      timestamp: Date.now(),
+      details: { lineId },
+    };
+    state.gameLog.push(event);
+    console.log(`[BINGO] ${bonusNarrative}`);
+  }
 }

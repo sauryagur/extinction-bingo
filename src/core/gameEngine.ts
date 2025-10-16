@@ -9,7 +9,9 @@ import {
   findActionById,
   findRegionById,
   applyProgressCap,
-} from '../common/utils' // Placeholder utils
+} from '../common/utils'
+import { checkBingoCompletion } from './bingo'
+import { drawActionHand } from './events'
 
 /**
  * The core engine responsible for executing game logic:
@@ -44,9 +46,6 @@ export class GameEngine {
     const action = findActionById(state.actionHand, actionId)
     const targetRegion = findRegionById(state.regions, targetRegionId)
 
-    if (!action || !targetRegion) {
-      throw { message: 'Invalid action or region ID.', status: 400 }
-    }
     if (state.power < action.powerCost) {
       throw { message: 'Insufficient Power to execute action.', status: 403 }
     }
@@ -93,23 +92,24 @@ export class GameEngine {
     // 1. Resolve State Flips and Update Persistence Counters
     this.resolveRegionStateFlips(state)
 
-    // 2. Update Global Metrics (Global Control Index)
+    // 2. Check and complete Bingo Objectives
+    checkBingoCompletion(state)
+
+    // 3. Calculate Passive Power for the next turn
+    this.calculatePassivePower(state)
+
+    // 4. Update Global Metrics (Global Control Index)
     state.globalControlIndex = calculateGlobalMetrics(state.regions)
 
-    // 3. Check Win/Loss Conditions
+    // 5. Check Win/Loss Conditions
     if (this.checkWinLossConditions(state)) {
       await this.stateManager.saveGame(state)
       return state
     }
 
-    // 4. Calculate Passive Power for the next turn
-    this.calculatePassivePower(state)
-
-    // 5. Check and complete Bingo Objectives
-    this.checkBingoCompletion(state)
-
-    // 6. Draw New Action Hand
-    state.actionHand = this.drawNewActionHand(state)
+    // 6. Draw New Action Hand (3 to 5 cards)
+    const cardCount = 3 + Math.floor(Math.random() * 3) // 3, 4, or 5
+    state.actionHand = drawActionHand(cardCount, state.turn)
 
     // 7. Advance Turn Counter
     state.turn += 1
@@ -119,14 +119,6 @@ export class GameEngine {
 
     await this.stateManager.saveGame(state)
     return state
-  }
-  checkBingoCompletion(state: GameState) {
-    console.log(state)
-    throw new Error('Method not implemented.')
-  }
-  drawNewActionHand(state: GameState): Action[] {
-    console.log(state)
-    throw new Error('Method not implemented.')
   }
 
   /**
@@ -140,23 +132,27 @@ export class GameEngine {
   // --- Private Game Logic Methods ---
 
   private applyActionEffects(state: GameState, region: Region, action: Action): void {
-    const cEffect = action.controlEffect
-    const sEffect = action.stabilityEffect
+    // Apply C/S effects directly
+    region.control = Math.max(0, Math.min(100, region.control + action.controlEffect))
+    region.stability = Math.max(0, Math.min(100, region.stability + action.stabilityEffect))
 
     // GDD Rule: Actions increment progress bars toward state transitions
-    region.progressToNextState += applyProgressCap(state, cEffect, sEffect)
+    region.progressToNextState += applyProgressCap(state, action.controlEffect, action.stabilityEffect)
   }
 
   private applySpillover(state: GameState, sourceRegion: Region, action: Action): void {
     if (!action.causesSpillover) return
 
-    const spilloverEffect = (action.controlEffect + action.stabilityEffect) / 5 // Example calculation
+    // Spillover is a fraction of the total impact
+    const spilloverProgress = Math.floor(applyProgressCap(state, action.controlEffect, action.stabilityEffect) / 4)
+
+    if (spilloverProgress <= 0) return
 
     sourceRegion.neighbors.forEach((neighborId) => {
       const neighbor = findRegionById(state.regions, neighborId)
       if (neighbor) {
         // Apply a small increment to the neighbor's progress
-        neighbor.progressToNextState += Math.max(0, spilloverEffect)
+        neighbor.progressToNextState = Math.min(100, neighbor.progressToNextState + spilloverProgress)
       }
     })
   }
@@ -211,7 +207,6 @@ export class GameEngine {
     if (c < 20 && s < 20) return 'Collapsed'
 
     // Contested (Tug-of-War)
-    // Check for Contested *state* criteria: C/S near middle or high difference but currently contested (maintaining tension).
     if ((c > 40 && c < 60) || (s > 40 && s < 60) || (current === 'Contested' && c > 30 && s > 30)) return 'Contested'
 
     // Maintain current state if no clear shift criteria met
@@ -223,8 +218,9 @@ export class GameEngine {
     state.regions.forEach((r) => {
       if (r.state === 'Dominated') {
         generatedPower += 5 // Example generation rate
+      } else if (r.state === 'Contested') {
+        generatedPower += 2 // Contested regions provide some power
       }
-      // Add moderate power from Contested if partially AI-influenced
     })
 
     // GDD Rule: Early game generation is capped
@@ -240,8 +236,8 @@ export class GameEngine {
     const stableCount = state.regions.filter((r) => r.state === 'Stable').length
     const totalRegions = state.regions.length
 
-    const winThreshold = 0.7 * totalRegions
-    const lossThreshold = 0.7 * totalRegions
+    const winThreshold = Math.ceil(0.7 * totalRegions)
+    const lossThreshold = Math.ceil(0.7 * totalRegions)
 
     if (dominatedCount >= winThreshold) {
       state.winPersistenceCounter += 1
@@ -274,27 +270,12 @@ export class GameEngine {
     return false
   }
 
-  // private checkBingoCompletion(state: GameState): void {
-  //   // NOTE: This logic belongs in bingo.ts, but mocked here.
-  //   // Iterate through state.bingoCard and check criteria.
-  //   // Apply bonus effects upon completion.
-  // }
-
-  // private drawNewActionHand(state: GameState): Action[] {
-  //   // NOTE: This logic belongs in events.ts, but mocked here.
-  //   // Draw 3-5 new actions from the available pool based on game phase, awareness, etc.
-  //   // For now, just refill with basic actions if the hand is empty.
-  //   return state.actionHand.length > 0 ? state.actionHand : this.stateManager.drawInitialActionHand()
-  // }
-
   private updateProgressCap(state: GameState): void {
     // GDD Rule: Late game cap increases slightly
     if (state.turn >= 16) {
       state.progressCapPerAction = 20 // Late game cap (15-20% range)
     } else if (state.turn >= 6) {
       state.progressCapPerAction = 15 // Mid game increase
-    } else {
-      state.progressCapPerAction = 10
     }
   }
 }

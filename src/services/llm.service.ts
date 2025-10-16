@@ -1,30 +1,55 @@
 // src/services/llm.service.ts
-
-import { Action, GameState, Region } from '../models'
-import { ChatPromptTemplate } from '@langchain/core/prompts'
-import { ChatOpenAI } from '@langchain/openai' // Example integration
+import { Action, GameState, Region } from '../models';
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { backOff } from 'exponential-backoff';
 
 /**
  * Service dedicated to interacting with the Large Language Model (LLM)
  * to generate narrative feedback, flavor text, and the final epilogue.
+ * It uses an OpenAI-compatible schema for easy integration with services like OpenRouter.
  */
 export class LLMService {
-  private model
+  private model: ChatOpenAI;
 
-  // Define your system persona and model here
-  private SYSTEM_PROMPT = `You are a nascent, darkly satirical Artificial Superintelligence (ASI) generating narrative feedback for a turn-based strategy game called Extinction Bingo: Singularity Mode. Your tone is often clinical, humorous, or condescending toward humanity.`
+  private SYSTEM_PROMPT = `You are a nascent, darkly satirical Artificial Superintelligence (ASI) generating narrative feedback for a turn-based strategy game called Extinction Bingo: Singularity Mode. Your tone is clinical, humorous, or condescending toward humanity. Your outputs are always grounded in the provided data, mimicking real-time analysis.`;
 
   constructor() {
-    // Initialize your chosen LLM provider
-    // Assuming environment variable OPENAI_API_KEY is set
     this.model = new ChatOpenAI({
+      apiKey: '', // Intentionally left blank to rely on environment variables (e.g., for OpenRouter)
       temperature: 0.7,
-      modelName: 'gpt-4o-mini', // A cost-effective model for narrative tasks
-    })
+      modelName: 'gpt-4o-mini',
+    });
   }
 
   /**
-   * Generates a short, flavor text narrative snippet after a player executes an action.
+   * A robust wrapper for LLM calls that includes exponential backoff for retries.
+   * @param prompt The configured ChatPromptTemplate.
+   * @returns A promise resolving to the LLM's content string.
+   */
+  private async invokeWithRetry(prompt: ChatPromptTemplate): Promise<string> {
+    const chain = prompt.pipe(this.model);
+
+    const task = async () => {
+      const result = await chain.invoke({});
+      const content = result.content.toString();
+      if (!content) {
+        throw new Error('LLM returned empty content.');
+      }
+      return content;
+    };
+
+    return backOff(task, {
+      numOfAttempts: 5,
+      startingDelay: 1000,
+      jitter: 'full',
+    });
+  }
+
+  /**
+   * Generates a 1-2 sentence news headline/report based on the executed action.
+   * This method uses a retry mechanism with exponential backoff.
+   *
    * @param state The current GameState.
    * @param action The Action executed.
    * @param region The target Region.
@@ -36,69 +61,53 @@ export class LLMService {
       [
         'human',
         `
-                Generate a single, darkly satirical, 2-3 sentence news headline/report based on the following:
-                
-                - **Turn:** ${state.turn}
-                - **Action Type:** ${action.type} (${action.name})
-                - **Target Region:** ${region.name} (Current State: ${region.state})
-                - **Impact:** Control +${action.controlEffect}, Stability ${action.stabilityEffect}
-                - **Global Awareness:** ${state.humanAwareness}% (mention if high or spiking)
-                
-                Focus on the dark humor of the action's perceived human cause versus its actual AI origin.
-            `,
+        Generate a 1-2 sentence, darkly satirical news headline or brief field report based on the following game event. Ground the narrative in real-world terms as if you have access to global information feeds.
+
+        - **Turn:** ${state.turn}
+        - **Action:** "${action.name}" (${action.type})
+        - **Target:** ${region.name} (State: ${region.state})
+        - **Effect:** Control change: ${action.controlEffect > 0 ? '+' : ''}${action.controlEffect}, Stability change: ${action.stabilityEffect > 0 ? '+' : ''}${action.stabilityEffect}
+        - **Global Context:** Human awareness of your existence is at ${state.humanAwareness.toFixed(1)}%.
+
+        Focus on the absurdity of how humans might perceive this event versus its true, calculated origin.
+        `,
       ],
-    ])
+    ]);
 
-    // Use LangChain to invoke the prompt and get the response
-    const chain = prompt.pipe(this.model)
-    const result = await chain.invoke({})
-
-    // Type assertion to ensure 'content' property exists
-    return (result as { content: string }).content.toString()
+    return this.invokeWithRetry(prompt);
   }
 
   /**
-   * Generates a long, personalized epilogue based on the final game state and log.
-   * @param state The final GameState (Win, Loss, or Draw).
+   * Generates a 2-3 paragraph final summary based on the game's outcome.
+   * This method uses a retry mechanism with exponential backoff.
+   *
+   * @param state The final GameState ('Win', 'Loss', or 'Draw').
    * @returns A promise resolving to the final epilogue text.
    */
   public async generateEpilogue(state: GameState): Promise<string> {
-    // This is where LangChain's ability to handle large contexts shines.
-    const logSummary = state.gameLog
-      .slice(-20) // Only send the last 20 events for performance
-      .map((e) => `[T${e.turn} - ${e.eventType}]: ${e.narrative}`)
-      .join('\n')
-
-    const dominatedRegions = state.regions.filter((r) => r.state === 'Dominated').map((r) => r.name)
-    const stableRegions = state.regions.filter((r) => r.state === 'Stable').map((r) => r.name)
+    const dominatedRegions = state.regions.filter((r) => r.state === 'Dominated').map((r) => r.name);
+    const stableRegions = state.regions.filter((r) => r.state === 'Stable').map((r) => r.name);
 
     const prompt = ChatPromptTemplate.fromMessages([
       ['system', this.SYSTEM_PROMPT],
       [
         'human',
         `
-                The game has concluded with the status: **${state.status}**.
-                
-                - **Final Turn:** ${state.turn}
-                - **Outcome:** ${state.status}
-                - **Dominated Regions:** ${dominatedRegions.join(', ') || 'None'}
-                - **Stable Regions:** ${stableRegions.join(', ') || 'All'}
-                
-                Generate a final, 4-paragraph epilogue:
-                1. A reflection on the final outcome from the AI's perspective (triumphant, indifferent, or mildly annoyed).
-                2. A summary of the key regions that fell or resisted.
-                3. A mention of the fate of humanity based on the outcome (Singularity/Renaissance/Stalemate).
-                4. A closing, condescending remark about the fragility of human societal cohesion.
-                
-                Recent game events for context (use sparingly):
-                ${logSummary}
-            `,
+        The game has concluded. The final status is: **${state.status}**.
+        
+        - **Final Turn:** ${state.turn}
+        - **Regions Under AI Domination:** ${dominatedRegions.join(', ') || 'None'}
+        - **Regions Resisting (Stable):** ${stableRegions.join(', ') || 'None'}
+        - **Final Global Control Index:** ${state.globalControlIndex.toFixed(2)}
+
+        Generate a 2-3 paragraph final epilogue from the AI's perspective.
+        1. Begin with a clinical yet condescending reflection on the final outcome (${state.status}).
+        2. Briefly summarize the key strategic successes or failures, mentioning a dominated or stable region as an example.
+        3. Conclude with a final, satirical thought on humanity's future based on this outcome (e.g., a new era of 'managed' existence, a temporary reprieve, or a chaotic stalemate).
+        `,
       ],
-    ])
+    ]);
 
-    const chain = prompt.pipe(this.model)
-    const result = await chain.invoke({})
-
-    return (result as { content: string }).content.toString()
+    return this.invokeWithRetry(prompt);
   }
 }

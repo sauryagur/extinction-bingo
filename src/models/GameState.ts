@@ -82,8 +82,8 @@ export interface GameState {
   // Strategic Layer
   /** The 3x3 randomized objectives for the current game */
   bingoCard: BingoObjective[]
-  /** The current hand of playable actions */
-  actionHand: Action[]
+  /** A list of completed bingo line identifiers (e.g., 'row-0', 'col-1', 'diag-down') to prevent duplicate bonus awards. */
+  completedBingoLines: string[]
 
   // Game Log
   /** A record of all actions and major outcomes */

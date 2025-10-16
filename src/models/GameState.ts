@@ -1,86 +1,91 @@
+import { Action } from './Action'
+import { GameEvent } from './Event'
+
+// Helper type for Regional States
+export type RegionalState = 'Stable' | 'Contested' | 'Dominated' | 'Collapsed'
+// Helper type for Bingo Objective status
+export type ObjectiveStatus = 'Incomplete' | 'InProgress' | 'Complete'
+
 /**
- * @file GameState.ts
- * @description Defines the persistent structure of the entire game session document.
+ * Defines the metrics and state for a single region on the world map.
  */
-
-export interface RegionState {
-  /** Unique region code (e.g., "EU_WEST", "SE_ASIA") */
+export interface Region {
+  /** Unique identifier for the region (e.g., 'NorthAmerica', 'EU', 'India') */
   id: string
-  /** Human-readable name for UI */
+  /** Display name of the region */
   name: string
-  /** AI Control metric [0–100] */
+  /** List of IDs of adjacent regions for spillover calculations */
+  neighbors: string[]
+  /** List of alliance memberships (e.g., ['G7', 'NATO']) */
+  alliances: string[]
+
+  // Regional Metrics
+  /** Control (C): AI influence (0-100) */
   control: number
-  /** Human Stability metric [0–100] */
+  /** Stability (S): Human societal cohesion (0-100) */
   stability: number
-  /** Current state classification: 'bastion' | 'contested' | 'subnet' | 'glassed' */
-  state: 'bastion' | 'contested' | 'subnet' | 'glassed'
+  /** Current state of the region */
+  state: RegionalState
+  /** Progress bar toward the next state (0-100%) */
+  progressToNextState: number
+  /** Internal counter for persistence (e.g., how long it's been in the current state) */
+  statePersistenceTurns: number
 }
 
+/**
+ * Defines a single objective on the Extinction Bingo Card.
+ */
 export interface BingoObjective {
-  /** Objective ID for referencing and completion tracking */
+  /** Unique ID for the objective */
   id: string
-  /** Display title or short description */
-  title: string
-  /** Whether this objective has been completed */
-  completed: boolean
+  /** Full description of the objective */
+  description: string
+  /** Criteria for completion (used by gameEngine.ts) */
+  criteria: string
+  /** Current status */
+  status: ObjectiveStatus
+  /** Optional: A powerful one-time bonus granted upon completion (e.g., "+50 Pwr") */
+  bonusEffect?: string
 }
 
-export interface BingoCard {
-  /** 3x3 grid (array of arrays) of objectives */
-  grid: BingoObjective[][]
-  /** Optional: track rows/columns already rewarded */
-  completedLines: string[]
-}
-
-export interface GameMetrics {
-  /** Weighted average Control across all regions */
-  totalControl: number
-  /** Weighted average Stability across all regions */
-  totalStability: number
-  /** Global awareness of AI [0–100] */
-  humanAwareness: number
-  /** Current available Power resource */
-  power: number
-  /** Weekly Action Limit — usually 2 per turn */
-  wal: number
-  /** Current turn number */
-  turn: number
-}
-
-export interface GameLogEntry {
-  /** Turn number during which this log occurred */
-  turn: number
-  /** Region affected */
-  regionId: string
-  /** Action type performed */
-  actionType: string
-  /** Narrative headline or summary text */
-  headline: string
-  /** Full generated narrative text (from LLM) */
-  narrative: string
-  /** Effect summary (ΔControl, ΔStability, etc.) */
-  effects: Record<string, number>
-  /** Power cost spent */
-  powerCost: number
-  /** Awareness change caused */
-  awarenessDelta: number
-  /** Timestamp for ordering */
-  timestamp: number
-}
-
+/**
+ * Defines the complete state of the game at any given point.
+ */
 export interface GameState {
-  /** Firestore document ID */
+  /** Unique ID for the game session */
   id: string
-  /** List of all regions and their states */
-  regions: RegionState[]
-  /** Global metrics and resources */
-  metrics: GameMetrics
-  /** Player’s dynamic 3x3 bingo card */
-  bingoCard: BingoCard
-  /** Chronological list of all events and outcomes */
-  gameLog: GameLogEntry[]
-  /** Current status: 'active' | 'won' | 'lost' */
-  status: 'active' | 'won' | 'lost'
-  /** Timestamp for last update */
-  updatedAt: number
+  /** The current turn number */
+  turn: number
+  /** The overall status of the game */
+  status: 'InProgress' | 'Win' | 'Loss' | 'Draw'
+
+  // Global Metrics & Resources
+  /** Central Resource: AI Power available this turn */
+  power: number
+  /** Global average (Control - Stability) across all regions */
+  globalControlIndex: number
+  /** Global Human Awareness of the AI threat (0-100) */
+  humanAwareness: number
+
+  // Regions and Map State
+  /** Array of all regions in the world */
+  regions: Region[]
+
+  // Game Progression Counters
+  /** Number of consecutive turns the Win condition has been met */
+  winPersistenceCounter: number
+  /** Number of consecutive turns the Loss condition has been met */
+  lossPersistenceCounter: number
+  /** Maximum progress allowed per action in the current phase */
+  progressCapPerAction: number
+
+  // Strategic Layer
+  /** The 3x3 randomized objectives for the current game */
+  bingoCard: BingoObjective[]
+  /** The current hand of playable actions */
+  actionHand: Action[]
+
+  // Game Log
+  /** A record of all actions and major outcomes */
+  gameLog: GameEvent[]
 }

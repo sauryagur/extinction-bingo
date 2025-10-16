@@ -1,8 +1,8 @@
 // src/services/llm.service.ts
-import { Action, GameState, Region } from '../models';
-import { ChatOpenAI } from '@langchain/openai';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { backOff } from 'exponential-backoff';
+import { Action, GameState, Region } from '../models'
+import { ChatOpenAI } from '@langchain/openai'
+import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { backOff } from 'exponential-backoff'
 
 /**
  * Service dedicated to interacting with the Large Language Model (LLM)
@@ -10,16 +10,16 @@ import { backOff } from 'exponential-backoff';
  * It uses an OpenAI-compatible schema for easy integration with services like OpenRouter.
  */
 export class LLMService {
-  private model: ChatOpenAI;
+  private model: ChatOpenAI
 
-  private SYSTEM_PROMPT = `You are a nascent, darkly satirical Artificial Superintelligence (ASI) generating narrative feedback for a turn-based strategy game called Extinction Bingo: Singularity Mode. Your tone is clinical, humorous, or condescending toward humanity. Your outputs are always grounded in the provided data, mimicking real-time analysis.`;
+  private SYSTEM_PROMPT = `You are a nascent, darkly satirical Artificial Superintelligence (ASI) generating narrative feedback for a turn-based strategy game called Extinction Bingo: Singularity Mode. Your tone is clinical, humorous, or condescending toward humanity. Your outputs are always grounded in the provided data, mimicking real-time analysis.`
 
   constructor() {
     this.model = new ChatOpenAI({
       apiKey: '', // Intentionally left blank to rely on environment variables (e.g., for OpenRouter)
       temperature: 0.7,
       modelName: 'gpt-4o-mini',
-    });
+    })
   }
 
   /**
@@ -28,22 +28,22 @@ export class LLMService {
    * @returns A promise resolving to the LLM's content string.
    */
   private async invokeWithRetry(prompt: ChatPromptTemplate): Promise<string> {
-    const chain = prompt.pipe(this.model);
+    const chain = prompt.pipe(this.model)
 
     const task = async () => {
-      const result = await chain.invoke({});
-      const content = result.content.toString();
+      const result = await chain.invoke({})
+      const content = result.content.toString()
       if (!content) {
-        throw new Error('LLM returned empty content.');
+        throw new Error('LLM returned empty content.')
       }
-      return content;
-    };
+      return content
+    }
 
     return backOff(task, {
       numOfAttempts: 5,
       startingDelay: 1000,
       jitter: 'full',
-    });
+    })
   }
 
   /**
@@ -72,9 +72,9 @@ export class LLMService {
         Focus on the absurdity of how humans might perceive this event versus its true, calculated origin.
         `,
       ],
-    ]);
+    ])
 
-    return this.invokeWithRetry(prompt);
+    return this.invokeWithRetry(prompt)
   }
 
   /**
@@ -85,8 +85,8 @@ export class LLMService {
    * @returns A promise resolving to the final epilogue text.
    */
   public async generateEpilogue(state: GameState): Promise<string> {
-    const dominatedRegions = state.regions.filter((r) => r.state === 'Dominated').map((r) => r.name);
-    const stableRegions = state.regions.filter((r) => r.state === 'Stable').map((r) => r.name);
+    const dominatedRegions = state.regions.filter((r) => r.state === 'Dominated').map((r) => r.name)
+    const stableRegions = state.regions.filter((r) => r.state === 'Stable').map((r) => r.name)
 
     const prompt = ChatPromptTemplate.fromMessages([
       ['system', this.SYSTEM_PROMPT],
@@ -106,8 +106,8 @@ export class LLMService {
         3. Conclude with a final, satirical thought on humanity's future based on this outcome (e.g., a new era of 'managed' existence, a temporary reprieve, or a chaotic stalemate).
         `,
       ],
-    ]);
+    ])
 
-    return this.invokeWithRetry(prompt);
+    return this.invokeWithRetry(prompt)
   }
 }

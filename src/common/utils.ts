@@ -1,5 +1,5 @@
-import { v4 as uuidv4 } from 'uuid';
-import { Region, Action, GameState } from '../models';
+import { v4 as uuidv4 } from 'uuid'
+import { Region, Action, GameState } from '../models'
 
 /**
  * Calculates the globalControlIndex, which is the average of (Control - Stability) across all regions.
@@ -10,11 +10,11 @@ import { Region, Action, GameState } from '../models';
  */
 export const calculateGlobalMetrics = (regions: Region[]): number => {
   if (!regions || regions.length === 0) {
-    return 0;
+    return 0
   }
-  const totalDifference = regions.reduce((acc, region) => acc + (region.control - region.stability), 0);
-  return totalDifference / regions.length;
-};
+  const totalDifference = regions.reduce((acc, region) => acc + (region.control - region.stability), 0)
+  return totalDifference / regions.length
+}
 
 /**
  * Safely finds a region by its ID from an array of regions.
@@ -26,12 +26,12 @@ export const calculateGlobalMetrics = (regions: Region[]): number => {
  * @throws Will throw an error if the region with the specified ID is not found.
  */
 export const findRegionById = (regions: Region[], id: string): Region => {
-  const region = regions.find((r) => r.id === id);
+  const region = regions.find((r) => r.id === id)
   if (!region) {
-    throw new Error(`Region with ID "${id}" not found.`);
+    throw new Error(`Region with ID "${id}" not found.`)
   }
-  return region;
-};
+  return region
+}
 
 /**
  * Safely finds an action by its ID from an array of actions.
@@ -43,12 +43,12 @@ export const findRegionById = (regions: Region[], id: string): Region => {
  * @throws Will throw an error if the action with the specified ID is not found.
  */
 export const findActionById = (actions: Action[], id: string): Action => {
-  const action = actions.find((a) => a.id === id);
+  const action = actions.find((a) => a.id === id)
   if (!action) {
-    throw new Error(`Action with ID "${id}" not found.`);
+    throw new Error(`Action with ID "${id}" not found.`)
   }
-  return action;
-};
+  return action
+}
 
 /**
  * Calculates the final progress value to be applied to a region's state change,
@@ -61,9 +61,9 @@ export const findActionById = (actions: Action[], id: string): Action => {
  * @returns The capped progress value.
  */
 export const applyProgressCap = (state: GameState, controlEffect: number, stabilityEffect: number): number => {
-  const totalEffect = Math.abs(controlEffect) + Math.abs(stabilityEffect);
-  return Math.min(totalEffect, state.progressCapPerAction);
-};
+  const totalEffect = Math.abs(controlEffect) + Math.abs(stabilityEffect)
+  return Math.min(totalEffect, state.progressCapPerAction)
+}
 
 /**
  * Generates a unique identifier using UUIDv4.
@@ -71,5 +71,5 @@ export const applyProgressCap = (state: GameState, controlEffect: number, stabil
  * @returns A unique string ID.
  */
 export const generateUniqueId = (): string => {
-  return uuidv4();
-};
+  return uuidv4()
+}

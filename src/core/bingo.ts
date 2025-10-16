@@ -60,13 +60,13 @@ export function generateBingoCard(): BingoObjective[] {
  */
 export function checkBingoCompletion(state: GameState): void {
   // Placeholder Logic: Mark the first uncompleted objective as 'Complete' if the turn is a multiple of 5.
-  let objectiveCompletedThisTurn = false;
+  let objectiveCompletedThisTurn = false
   if (state.turn > 0 && state.turn % 5 === 0) {
-    const firstIncomplete = state.bingoCard.find((obj) => obj.status === 'Incomplete');
+    const firstIncomplete = state.bingoCard.find((obj) => obj.status === 'Incomplete')
 
     if (firstIncomplete) {
-      firstIncomplete.status = 'Complete';
-      objectiveCompletedThisTurn = true;
+      firstIncomplete.status = 'Complete'
+      objectiveCompletedThisTurn = true
 
       // Log a GameEvent for the completion.
       const event: GameEvent = {
@@ -77,15 +77,15 @@ export function checkBingoCompletion(state: GameState): void {
         regionId: null,
         timestamp: Date.now(),
         details: { objectiveId: firstIncomplete.id },
-      };
-      state.gameLog.push(event);
-      console.log(`[BINGO] Turn ${state.turn}: Objective "${firstIncomplete.description}" completed!`);
+      }
+      state.gameLog.push(event)
+      console.log(`[BINGO] Turn ${state.turn}: Objective "${firstIncomplete.description}" completed!`)
     }
   }
 
   // If an objective was completed, check for new bingo lines.
   if (objectiveCompletedThisTurn) {
-    checkAndApplyBingoLineBonuses(state);
+    checkAndApplyBingoLineBonuses(state)
   }
 }
 
@@ -94,8 +94,8 @@ export function checkBingoCompletion(state: GameState): void {
  * @param state The current GameState.
  */
 function checkAndApplyBingoLineBonuses(state: GameState): void {
-  const card = state.bingoCard;
-  if (card.length !== 9) return; // Ensure it's a 3x3 grid
+  const card = state.bingoCard
+  if (card.length !== 9) return // Ensure it's a 3x3 grid
 
   const lines = {
     // Rows
@@ -109,22 +109,22 @@ function checkAndApplyBingoLineBonuses(state: GameState): void {
     // Diagonals
     'diag-down': [0, 4, 8],
     'diag-up': [2, 4, 6],
-  };
+  }
 
   for (const [lineId, indices] of Object.entries(lines)) {
     // Check if this line is already completed and rewarded
     if (state.completedBingoLines.includes(lineId)) {
-      continue;
+      continue
     }
 
-    const isLineComplete = indices.every((index) => card[index].status === 'Complete');
+    const isLineComplete = indices.every((index) => card[index].status === 'Complete')
 
     if (isLineComplete) {
       // Mark line as complete to prevent re-awarding
-      state.completedBingoLines.push(lineId);
+      state.completedBingoLines.push(lineId)
 
       // Apply a powerful, one-time bonus
-      applyBingoBonus(state, lineId);
+      applyBingoBonus(state, lineId)
     }
   }
 }
@@ -135,22 +135,22 @@ function checkAndApplyBingoLineBonuses(state: GameState): void {
  * @param lineId The identifier of the completed line (e.g., 'row-0').
  */
 function applyBingoBonus(state: GameState, lineId: string): void {
-  let bonusNarrative = '';
+  let bonusNarrative = ''
 
   // Example Bonuses
   if (lineId.startsWith('row')) {
-    state.power += 50; // Massive power injection
-    bonusNarrative = 'Line Bonus: Critical power surge detected (+50 Power).';
+    state.power += 50 // Massive power injection
+    bonusNarrative = 'Line Bonus: Critical power surge detected (+50 Power).'
   } else if (lineId.startsWith('col')) {
-    state.progressCapPerAction += 5; // Increase action effectiveness
-    bonusNarrative = `Line Bonus: Global destabilization matrix enhanced (+5 Progress Cap).`;
+    state.progressCapPerAction += 5 // Increase action effectiveness
+    bonusNarrative = `Line Bonus: Global destabilization matrix enhanced (+5 Progress Cap).`
   } else if (lineId.startsWith('diag')) {
     // Instantly make one Stable region Contested
-    const stableRegion = state.regions.find((r) => r.state === 'Stable');
+    const stableRegion = state.regions.find((r) => r.state === 'Stable')
     if (stableRegion) {
-      stableRegion.state = 'Contested';
-      stableRegion.progressToNextState = 0;
-      bonusNarrative = `Line Bonus: ${stableRegion.name} has descended into chaos, now Contested.`;
+      stableRegion.state = 'Contested'
+      stableRegion.progressToNextState = 0
+      bonusNarrative = `Line Bonus: ${stableRegion.name} has descended into chaos, now Contested.`
     }
   }
 
@@ -163,8 +163,8 @@ function applyBingoBonus(state: GameState, lineId: string): void {
       regionId: null,
       timestamp: Date.now(),
       details: { lineId },
-    };
-    state.gameLog.push(event);
-    console.log(`[BINGO] ${bonusNarrative}`);
+    }
+    state.gameLog.push(event)
+    console.log(`[BINGO] ${bonusNarrative}`)
   }
 }

@@ -3,7 +3,13 @@
 import { StateManager } from './stateManager'
 import { LLMService } from '../services/llm.service'
 import { Action, GameState, Region, GameEvent, RegionalState } from '../models'
-import { calculateGlobalMetrics, findActionById, findRegionById, applyProgressCap } from '../common/utils' // Placeholder utils
+import {
+  generateUniqueId,
+  calculateGlobalMetrics,
+  findActionById,
+  findRegionById,
+  applyProgressCap,
+} from '../common/utils' // Placeholder utils
 
 /**
  * The core engine responsible for executing game logic:
@@ -114,6 +120,14 @@ export class GameEngine {
     await this.stateManager.saveGame(state)
     return state
   }
+  checkBingoCompletion(state: GameState) {
+    console.log(state)
+    throw new Error('Method not implemented.')
+  }
+  drawNewActionHand(state: GameState): Action[] {
+    console.log(state)
+    throw new Error('Method not implemented.')
+  }
 
   /**
    * Generates the final epilogue narrative when the game concludes.
@@ -147,31 +161,61 @@ export class GameEngine {
     })
   }
 
-  private resolveRegionStateFlips(state: GameState): void {
+  private resolveRegionStateFlips(state: GameState): boolean {
+    let flipsOccurred = false
+
     state.regions.forEach((region) => {
+      // Increment persistence counter for current state
+      region.statePersistenceTurns += 1
+
       // Check for progress >= 100%
       if (region.progressToNextState >= 100) {
-        const newState = this.determineNextState(region.state, region.control, region.stability)
+        const newState = this.determineNextState(region)
         if (newState !== region.state) {
           // Flip occurs
           region.state = newState
           region.progressToNextState = 0 // Reset progress
-          region.statePersistenceTurns = 0
+          region.statePersistenceTurns = 0 // Reset persistence
+          flipsOccurred = true
+
           // Log the flip event
-          // ...
+          const event: GameEvent = {
+            id: generateUniqueId(),
+            turn: state.turn,
+            timestamp: Date.now(),
+            eventType: 'RegionFlipped',
+            regionId: region.id,
+            narrative: `${region.name} flipped to the ${newState} state.`,
+            details: { newState: newState },
+          }
+          state.gameLog.push(event)
+        } else {
+          // If progress is maxed but state didn't change (e.g., waiting for C/S to shift), reset progress
+          region.progressToNextState = 99
         }
       }
-      region.statePersistenceTurns += 1
     })
+    return flipsOccurred
   }
 
-  private determineNextState(currentState: RegionalState, control: number, stability: number): RegionalState {
-    // GDD Rules: Simple check for demonstration
-    if (control >= 75 && stability <= 50) return 'Dominated'
-    if (stability >= 75 && control <= 50) return 'Stable'
-    if (control > 40 && control < 60 && stability > 40 && stability < 60) return 'Contested'
-    if (control < 20 && stability < 20) return 'Collapsed' // Optional state
-    return currentState
+  private determineNextState(region: Region): RegionalState {
+    const { control: c, stability: s, state: current } = region
+
+    // Dominated (AI Singularity)
+    if (c >= 75 && s <= 50) return 'Dominated'
+
+    // Stable (Human Control)
+    if (s >= 75 && c <= 50) return 'Stable'
+
+    // Collapsed (Chaos Sink - GDD Optional)
+    if (c < 20 && s < 20) return 'Collapsed'
+
+    // Contested (Tug-of-War)
+    // Check for Contested *state* criteria: C/S near middle or high difference but currently contested (maintaining tension).
+    if ((c > 40 && c < 60) || (s > 40 && s < 60) || (current === 'Contested' && c > 30 && s > 30)) return 'Contested'
+
+    // Maintain current state if no clear shift criteria met
+    return current
   }
 
   private calculatePassivePower(state: GameState): void {

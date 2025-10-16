@@ -53,7 +53,8 @@ export class LLMService {
     const chain = prompt.pipe(this.model)
     const result = await chain.invoke({})
 
-    return result.content.toString()
+    // Type assertion to ensure 'content' property exists
+    return (result as { content: string }).content.toString()
   }
 
   /**
@@ -98,6 +99,6 @@ export class LLMService {
     const chain = prompt.pipe(this.model)
     const result = await chain.invoke({})
 
-    return result.content.toString()
+    return (result as { content: string }).content.toString()
   }
 }

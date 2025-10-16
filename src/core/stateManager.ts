@@ -1,9 +1,7 @@
 // src/core/stateManager.ts (Updated Constructor and Methods)
-
-import { GameState } from '../models'
+import { GameState, GameEvent } from '../models' // Import all types needed by the methods
 import { DBService } from '../services/db.service'
-import { generateUniqueId } from '../common/utils' // Placeholder for ID generation
-
+import { generateUniqueId } from '../common/utils'
 /**
  * Manages the loading, saving, and initialization of the entire GameState object.
  */
@@ -21,8 +19,19 @@ export class StateManager {
     // ... (creation of regions, bingo, hand)
 
     const initialState: GameState = {
-      id: generateUniqueId(), // Use a proper ID generator
-      // ... (rest of initial state metrics)
+      id: generateUniqueId(),
+      turn: 0,
+      status: 'InProgress',
+      power: 0,
+      globalControlIndex: 0,
+      humanAwareness: 0,
+      regions: [],
+      winPersistenceCounter: 0,
+      lossPersistenceCounter: 0,
+      progressCapPerAction: 0,
+      bingoCard: [],
+      actionHand: [],
+      gameLog: [],
     }
 
     // Use createGame for first save, since ID is generated locally
@@ -42,5 +51,11 @@ export class StateManager {
     await this.dbService.saveGameState(state)
   }
 
-  // ... (rest of the logEventAndSave method)
+  public async logEventAndSave(state: GameState, event: GameEvent): Promise<void> {
+    // FIX: Ensure 'state' and 'event' are used explicitly
+    state.gameLog.push(event) // uses state
+    await this.saveGame(state) // uses state
+    // If necessary, add a line that uses 'event' for logging or checking if the linter complains:
+    // console.log(`Logged event type: ${event.eventType}`);
+  }
 }

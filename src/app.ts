@@ -2,7 +2,6 @@ import express, { Application, Request, Response } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
-import routes from './common/routes'
 import unknownEndpoint from './middlewares/unknownEndpoint'
 import { requestLogger as loggerMiddleware } from './middlewares/loggerMiddleware'
 
@@ -32,7 +31,7 @@ app.get('/', (req: Request, res: Response) => {
   })
 })
 
-app.use('/api/', routes)
+// app.use('/api/', routes)
 
 // Handle unknown endpoints
 app.use('*', unknownEndpoint)

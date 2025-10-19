@@ -97,7 +97,17 @@ describe('GameService', () => {
   describe('executeHumanTurn', () => {
     it('should execute pending nextMoves and update awareness', () => {
       const game = GameService.createNewGame()
-      game.pendingNextMoves = [{ turnTrigger: 1, eventId: 'test-nextmove' }]
+      game.pendingNextMoves = [
+        {
+          id: 'test-nextmove',
+          turnTrigger: 1,
+          eventId: 'test-nextmove',
+          nextMove: {
+            headline: 'Test Human Reaction',
+            effects: {},
+          },
+        },
+      ]
 
       const result = GameService.executeHumanTurn(game)
 

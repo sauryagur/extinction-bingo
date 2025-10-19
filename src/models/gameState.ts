@@ -8,8 +8,20 @@ export interface GameLogEntry {
 }
 
 export interface PendingNextMove {
+  id: string
   turnTrigger: number
   eventId: string
+  nextMove?: {
+    headline: string
+    effects: Record<
+      string,
+      {
+        powerIncrement?: number
+        controlIncrement?: number
+        stabilityIncrement?: number
+      }
+    >
+  }
 }
 
 export interface GameState {

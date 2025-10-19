@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import compression from 'compression'
 import unknownEndpoint from './middlewares/unknownEndpoint'
 import { requestLogger as loggerMiddleware } from './middlewares/loggerMiddleware'
+import routes from './common/routes'
 
 // to use env variables
 import './common/env'
@@ -31,7 +32,7 @@ app.get('/', (req: Request, res: Response) => {
   })
 })
 
-// app.use('/api/', routes)
+app.use('/api', routes)
 
 // Handle unknown endpoints
 app.use('*', unknownEndpoint)

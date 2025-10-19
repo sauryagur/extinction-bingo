@@ -1,8 +1,11 @@
 // src/services/game.service.ts
-import { GameState } from '../models/gameState'
+import { GameState, GameLogEntry, PendingNextMove } from '../models/gameState'
 import { Region, RegionState } from '../models/region'
-import { NewsEvent } from '../models/event'
+import { NewsEvent, NextMove } from '../models/event'
 import { randomUUID } from 'crypto'
+
+type AIMood = 'Calculating' | 'Agitated' | 'Detached' | 'Euphoric'
+type Phase = 'early' | 'mid' | 'late'
 
 export class GameService {
   /**
@@ -170,10 +173,13 @@ export class GameService {
 
     // Queue nextMove for human turn
     if (option.nextMove) {
-      newState.pendingNextMoves.push({
+      const pending: PendingNextMove = {
+        id: `${eventId}_${optionId}_nextMove`,
         turnTrigger: gameState.turn + 1,
-        eventId: `${eventId}_${optionId}_nextMove`,
-      })
+        eventId: `${eventId}_${optionId}`,
+        nextMove: option.nextMove,
+      }
+      newState.pendingNextMoves.push(pending)
     }
 
     // Add to log
@@ -197,9 +203,27 @@ export class GameService {
 
     // Apply nextMove effects (simplified for now)
     currentTurnNextMoves.forEach((move) => {
+      if (!move.nextMove) return
+
       newState.log.push({
         turn: gameState.turn,
-        event: `Human reaction: ${move.eventId}`,
+        event: `Human reaction: ${move.nextMove.headline}`,
+      })
+
+      // Apply effects from nextMove
+      Object.entries(move.nextMove.effects || {}).forEach(([regionId, effects]) => {
+        const region = newState.regions.find((r) => r.id === regionId)
+        if (region) {
+          if (effects.controlIncrement !== undefined) {
+            region.control = Math.max(0, Math.min(100, region.control + effects.controlIncrement))
+          }
+          if (effects.stabilityIncrement !== undefined) {
+            region.stability = Math.max(0, Math.min(100, region.stability + effects.stabilityIncrement))
+          }
+          if (effects.powerIncrement !== undefined) {
+            newState.power = Math.max(0, newState.power + effects.powerIncrement)
+          }
+        }
       })
 
       // Increase awareness based on actions
@@ -253,7 +277,7 @@ export class GameService {
   /**
    * Calculate AI mood based on current game state
    */
-  static calculateAIMood(gameState: GameState): 'Calculating' | 'Agitated' | 'Detached' | 'Euphoric' {
+  static calculateAIMood(gameState: GameState): AIMood {
     const { regions, power, humanAwareness } = gameState
 
     const dominatedRegions = regions.filter((r) => r.state === 'Dominated').length
@@ -283,7 +307,7 @@ export class GameService {
   /**
    * Get current game phase based on turn number
    */
-  static getGamePhase(turn: number): 'early' | 'mid' | 'late' {
+  static getGamePhase(turn: number): Phase {
     if (turn <= 5) return 'early'
     if (turn <= 15) return 'mid'
     return 'late'

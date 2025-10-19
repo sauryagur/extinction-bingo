@@ -17,3 +17,5 @@ export interface Region {
   neighbors: string[]
   memoryLog: MemoryEvent[]
 }
+
+export { RegionState }

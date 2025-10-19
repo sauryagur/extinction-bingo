@@ -7,7 +7,7 @@ export interface Option {
   cost: number
   previewRisk: RiskLevel
   consequences: ConsequenceMap
-  nextMove: NextMove
+  nextMove?: NextMove
 }
 
 export interface NextMove {

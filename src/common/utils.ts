@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import { Region, Action, GameState } from '../models'
+import { Region } from '../models/region'
 
 /**
  * Calculates the globalControlIndex, which is the average of (Control - Stability) across all regions.
@@ -34,35 +34,15 @@ export const findRegionById = (regions: Region[], id: string): Region => {
 }
 
 /**
- * Safely finds an action by its ID from an array of actions.
- * Throws an error if the action is not found.
+ * Calculates final progress value to be applied to a region's state change.
+ * The total effect is sum of absolute values of control and stability effects.
  *
- * @param actions - The array of actions to search.
- * @param id - The ID of the action to find.
- * @returns The found Action object.
- * @throws Will throw an error if the action with the specified ID is not found.
- */
-export const findActionById = (actions: Action[], id: string): Action => {
-  const action = actions.find((a) => a.id === id)
-  if (!action) {
-    throw new Error(`Action with ID "${id}" not found.`)
-  }
-  return action
-}
-
-/**
- * Calculates the final progress value to be applied to a region's state change,
- * respecting the game's `progressCapPerAction`.
- * The total effect is the sum of the absolute values of control and stability effects.
- *
- * @param state - The current game state, containing the progress cap.
  * @param controlEffect - The base control effect of the action.
  * @param stabilityEffect - The base stability effect of the action.
- * @returns The capped progress value.
+ * @returns The progress value.
  */
-export const applyProgressCap = (state: GameState, controlEffect: number, stabilityEffect: number): number => {
-  const totalEffect = Math.abs(controlEffect) + Math.abs(stabilityEffect)
-  return Math.min(totalEffect, state.progressCapPerAction)
+export const calculateProgressValue = (controlEffect: number, stabilityEffect: number): number => {
+  return Math.abs(controlEffect) + Math.abs(stabilityEffect)
 }
 
 /**

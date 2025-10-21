@@ -23,6 +23,42 @@ export interface LLMRequest {
   }
 }
 
+export interface RawLLMResponse {
+  newsEvents: {
+    id?: string
+    headline?: string
+    summary?: string
+    region?: string
+    options?: {
+      id?: string
+      label?: string
+      cost?: number
+      previewRisk?: 'Low' | 'Moderate' | 'High'
+      consequences?: {
+        regionEffects?: Record<
+          string,
+          {
+            powerIncrement?: number
+            controlIncrement?: number
+            stabilityIncrement?: number
+          }
+        >
+      }
+      nextMove?: {
+        headline?: string
+        effects?: Record<
+          string,
+          {
+            controlIncrement?: number
+            stabilityIncrement?: number
+          }
+        >
+      }
+    }[]
+    skipOption?: boolean
+  }[]
+}
+
 export interface LLMResponse {
   newsEvents: NewsEvent[]
 }

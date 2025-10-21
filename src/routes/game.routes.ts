@@ -2,8 +2,9 @@
 import { Router, Request, Response } from 'express'
 import { GameService } from '../services/game.service'
 import { DBService } from '../services/db.service'
-import { NewsEvent } from '../models/event'
+import { LLMService } from '../services/llm.service'
 import { z } from 'zod'
+import logger from '../common/logger'
 
 const router = Router()
 
@@ -20,7 +21,7 @@ const ExecuteActionSchema = z.object({
 // POST /api/games - Create new game session
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { playerName } = CreateGameSchema.parse(req.body)
+    CreateGameSchema.parse(req.body)
 
     // Create new game state
     const gameState = GameService.createNewGame()
@@ -42,7 +43,7 @@ router.post('/', async (req: Request, res: Response) => {
       },
     })
   } catch (error) {
-    console.error('Error creating game:', error)
+    logger.error('Error creating game', { error })
     res.status(500).json({
       success: false,
       error: 'Failed to create game session',
@@ -70,7 +71,7 @@ router.get('/:sessionId', async (req: Request, res: Response) => {
       data: gameState,
     })
   } catch (error) {
-    console.error('Error fetching game state:', error)
+    logger.error('Error fetching game state', { error })
     res.status(500).json({
       success: false,
       error: 'Failed to fetch game state',
@@ -94,8 +95,9 @@ router.post('/:sessionId/actions', async (req: Request, res: Response) => {
       })
     }
 
-    // Get current turn events (for now, return empty array - will be replaced with LLM integration)
-    const events: NewsEvent[] = [] // TODO: Replace with LLM-generated events
+    // Generate LLM events for current turn
+    const llmService = new LLMService()
+    const events = await llmService.generateEvents(gameState)
 
     // Execute action
     const updatedState = GameService.executeAction(gameState, eventId, optionId, events)
@@ -113,7 +115,7 @@ router.post('/:sessionId/actions', async (req: Request, res: Response) => {
       },
     })
   } catch (error) {
-    console.error('Error executing action:', error)
+    logger.error('Error executing action', { error })
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to execute action',
@@ -158,7 +160,7 @@ router.post('/:sessionId/turns/advance', async (req: Request, res: Response) => 
       },
     })
   } catch (error) {
-    console.error('Error advancing turn:', error)
+    logger.error('Error advancing turn', { error })
     res.status(500).json({
       success: false,
       error: 'Failed to advance turn',
@@ -181,8 +183,9 @@ router.get('/:sessionId/events', async (req: Request, res: Response) => {
       })
     }
 
-    // For now, return empty array - will be replaced with LLM integration
-    const events: NewsEvent[] = []
+    // Generate LLM events for current turn
+    const llmService = new LLMService()
+    const events = await llmService.generateEvents(gameState)
     const eventsPerTurn = GameService.getEventsPerTurn(gameState.turn)
 
     res.json({
@@ -195,7 +198,7 @@ router.get('/:sessionId/events', async (req: Request, res: Response) => {
       },
     })
   } catch (error) {
-    console.error('Error fetching events:', error)
+    logger.error('Error fetching events', { error })
     res.status(500).json({
       success: false,
       error: 'Failed to fetch events',
@@ -216,7 +219,7 @@ router.delete('/:sessionId', async (req: Request, res: Response) => {
       message: 'Game session deleted successfully',
     })
   } catch (error) {
-    console.error('Error deleting game session:', error)
+    logger.error('Error deleting game session', { error })
     res.status(500).json({
       success: false,
       error: 'Failed to delete game session',

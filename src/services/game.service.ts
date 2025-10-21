@@ -1,7 +1,8 @@
 // src/services/game.service.ts
-import { GameState, GameLogEntry, PendingNextMove } from '../models/gameState'
+import { GameState, PendingNextMove } from '../models/gameState'
 import { Region, RegionState } from '../models/region'
-import { NewsEvent, NextMove } from '../models/event'
+import { NewsEvent } from '../models/event'
+import { RegionService } from './region.service'
 import { randomUUID } from 'crypto'
 
 type AIMood = 'Calculating' | 'Agitated' | 'Detached' | 'Euphoric'
@@ -149,7 +150,7 @@ export class GameService {
       throw new Error('Insufficient power')
     }
 
-    const newState = { ...gameState }
+    let newState = { ...gameState }
     newState.power -= option.cost
 
     // Apply consequences to regions
@@ -171,6 +172,19 @@ export class GameService {
     // Update region states based on new control/stability values
     newState.regions = this.updateRegionStates(newState.regions)
 
+    // Apply spillover effects to neighboring regions
+    Object.entries(option.consequences.regionEffects || {}).forEach(([regionId, effects]) => {
+      const spilloverEffects = {
+        controlIncrement: effects.controlIncrement ? Math.floor(effects.controlIncrement * 0.3) : undefined,
+        stabilityIncrement: effects.stabilityIncrement ? Math.floor(effects.stabilityIncrement * 0.3) : undefined,
+      }
+
+      // Only apply spillover if there are significant effects
+      if (spilloverEffects.controlIncrement || spilloverEffects.stabilityIncrement) {
+        newState.regions = RegionService.applySpilloverEffects(newState, regionId, spilloverEffects).regions
+      }
+    })
+
     // Queue nextMove for human turn
     if (option.nextMove) {
       const pending: PendingNextMove = {
@@ -182,7 +196,12 @@ export class GameService {
       newState.pendingNextMoves.push(pending)
     }
 
-    // Add to log
+    // Add memory events to affected regions
+    Object.keys(option.consequences.regionEffects || {}).forEach((regionId) => {
+      newState = RegionService.addMemoryEvent(newState, regionId, gameState.turn, `AI action: ${option.label}`)
+    })
+
+    // Add to game log
     newState.log.push({
       turn: gameState.turn,
       event: `Selected: ${option.label} for "${event.headline}"`,

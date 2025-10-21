@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import gameRoutes from '../routes/game.routes'
+import regionRoutes from '../routes/region.routes'
 
 // Import feature routers
 const router: Router = Router()
@@ -15,5 +16,8 @@ router.get('/', (_req, res) => {
 
 // Game routes
 router.use('/games', gameRoutes)
+
+// Region routes
+router.use('/regions', regionRoutes)
 
 export default router

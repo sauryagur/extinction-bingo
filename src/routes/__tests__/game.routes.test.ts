@@ -5,10 +5,13 @@ import app from '../../app'
 // Mock the entire services module to avoid Firebase initialization issues
 jest.mock('../../services/db.service')
 jest.mock('../../services/firebase.service')
+jest.mock('../../services/llm.service')
 
-// Import the mocked class
+// Import the mocked classes
 import { DBService } from '../../services/db.service'
+import { LLMService } from '../../services/llm.service'
 const MockedDBService = DBService as jest.MockedClass<typeof DBService>
+const MockedLLMService = LLMService as jest.MockedClass<typeof LLMService>
 
 describe('Game Routes', () => {
   beforeEach(() => {
@@ -189,6 +192,9 @@ describe('Game Routes', () => {
       }
 
       MockedDBService.prototype.loadGameState = jest.fn().mockResolvedValue(mockGameState)
+
+      // Mock LLM service to return empty events
+      MockedLLMService.prototype.generateEvents = jest.fn().mockResolvedValue([])
 
       const response = await request(app).get('/api/games/test-game-id/events').expect(200)
 
